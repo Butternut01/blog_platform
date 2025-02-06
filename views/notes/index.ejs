@@ -1,0 +1,22 @@
+<%- include('../partials/header', { user: user }) %>
+<main>
+  <h2>Your Notes</h2>
+  <a href="/notes/new">Create New Note</a>
+  <% if (notes.length === 0) { %>
+    <p>No notes available.</p>
+  <% } else { %>
+    <ul>
+      <% notes.forEach(note => { %>
+        <li>
+          <strong><%= note.title %></strong><br>
+          <%= note.content %><br>
+          <a href="/notes/<%= note._id %>/edit">Edit</a>
+          <form action="/notes/<%= note._id %>/delete" method="POST" style="display:inline;">
+            <button type="submit">Delete</button>
+          </form>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+</main>
+<%- include('../partials/footer') %>

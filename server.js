@@ -6,7 +6,8 @@ const mongoose = require('mongoose');
 const MongoStore = require('connect-mongo');
 const path = require('path');
 const multer = require('multer');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
+const Note = require('./models/Note');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -203,7 +204,91 @@ app.post('/edit-profile', ensureAuthenticated, upload.single('profilePic'), asyn
     res.render('edit-profile', { user: req.session.user, error: 'Update failed. Try again.' });
   }
 });
-
+app.get('/notes', ensureAuthenticated, async (req, res) => {
+    try {
+      const notes = await Note.find({ userId: req.session.userId });
+      res.render('notes/index', { user: req.session.user, notes });
+    } catch (err) {
+      console.error(err);
+      res.send("Error fetching notes");
+    }
+  });
+  
+  // CREATE: Show form to create a new note
+  app.get('/notes/new', ensureAuthenticated, (req, res) => {
+    res.render('notes/new', { user: req.session.user, error: null });
+  });
+  
+  // CREATE: Handle note creation
+  app.post('/notes', ensureAuthenticated, async (req, res) => {
+    const { title, content } = req.body;
+    if (!title || !content) {
+      return res.render('notes/new', { user: req.session.user, error: 'Title and content are required' });
+    }
+    try {
+      const note = new Note({
+        title,
+        content,
+        userId: req.session.userId
+      });
+      await note.save();
+      res.redirect('/notes');
+    } catch (err) {
+      console.error(err);
+      res.render('notes/new', { user: req.session.user, error: 'Error creating note' });
+    }
+  });
+  
+  // UPDATE: Show form to edit an existing note
+  app.get('/notes/:id/edit', ensureAuthenticated, async (req, res) => {
+    try {
+      const note = await Note.findOne({ _id: req.params.id, userId: req.session.userId });
+      if (!note) {
+        return res.redirect('/notes');
+      }
+      res.render('notes/edit', { user: req.session.user, note, error: null });
+    } catch (err) {
+      console.error(err);
+      res.redirect('/notes');
+    }
+  });
+  
+  // UPDATE: Handle note update
+  app.post('/notes/:id/edit', ensureAuthenticated, async (req, res) => {
+    const { title, content } = req.body;
+    if (!title || !content) {
+      return res.render('notes/edit', { 
+        user: req.session.user, 
+        note: { _id: req.params.id, title, content },
+        error: 'Title and content are required' 
+      });
+    }
+    try {
+      await Note.findOneAndUpdate(
+        { _id: req.params.id, userId: req.session.userId },
+        { title, content }
+      );
+      res.redirect('/notes');
+    } catch (err) {
+      console.error(err);
+      res.render('notes/edit', { 
+        user: req.session.user, 
+        note: { _id: req.params.id, title, content },
+        error: 'Error updating note' 
+      });
+    }
+  });
+  
+  // DELETE: Handle note deletion
+  app.post('/notes/:id/delete', ensureAuthenticated, async (req, res) => {
+    try {
+      await Note.findOneAndDelete({ _id: req.params.id, userId: req.session.userId });
+      res.redirect('/notes');
+    } catch (err) {
+      console.error(err);
+      res.redirect('/notes');
+    }
+  });
 // -----------------------
 // Start the Server
 // -----------------------
