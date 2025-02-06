@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Secure Web App</title>
+  <link rel="stylesheet" href="/css/style.css"> <!-- Link to your CSS if any -->
+</head>
+<body>
+  <header>
+    <h1>My Secure Web Application</h1>
+    <% if (user) { %>
+      <p>Welcome, <%= user.username %> | <a href="/logout">Logout</a></p>
+    <% } else { %>
+      <p><a href="/login">Login</a> | <a href="/register">Register</a></p>
+    <% } %>
+  </header>
+  <hr>

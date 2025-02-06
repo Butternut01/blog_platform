@@ -1,0 +1,14 @@
+<%- include('partials/header', { user: user }) %>
+<main>
+  <h2>Dashboard</h2>
+  <p>Welcome, <%= user.username %>!</p>
+  <% if (user.profilePic) { %>
+    <img src="<%= user.profilePic %>" alt="Profile Picture" style="max-width:150px;">
+  <% } else { %>
+    <p>No profile picture uploaded.</p>
+  <% } %>
+  <p>Email: <%= user.email %></p>
+  <!-- You can add links to edit or delete user data -->
+  <a href="/edit-profile">Edit Profile</a>
+</main>
+<%- include('partials/footer') %>
