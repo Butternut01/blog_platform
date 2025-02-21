@@ -11,32 +11,19 @@ Authentication: Express Session & bcrypt
 
 Installation
 1️⃣ Clone the Repository
-sh
-Copy
-Edit
 git clone https://github.com/your-username/notes-management.git
 cd notes-management
+
 2️⃣ Install Dependencies
 sh
-Copy
-Edit
 npm install
+
 3️⃣ Configure Environment Variables
 Create a .env file in the project root and add the following:
-
-env
-Copy
-Edit
+.env
 MONGO_URI=your_mongodb_connection_string
 SESSION_SECRET=your_secret_key
+
 4️⃣ Start the Server
-sh
-Copy
-Edit
 npm start
 The application will be running at http://localhost:3000
-
-Usage
-User Roles:
-Admin: Can view and delete all notes.
-Regular User: Can create, edit, and delete only their own notes.
