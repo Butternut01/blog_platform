@@ -10,6 +10,7 @@ Database: MongoDB Atlas
 Authentication: Express Session & bcrypt
 
 Installation
+
 1️⃣ Clone the Repository
 git clone https://github.com/your-username/notes-management.git
 cd notes-management
