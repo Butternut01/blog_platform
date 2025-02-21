@@ -5,7 +5,7 @@ const NoteSchema = new mongoose.Schema({
   content: { type: String, required: true },
   userId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
+    ref: 'User',  // ✅ Ensure this matches your User model name
     required: true 
   },
   createdAt: { type: Date, default: Date.now }

@@ -3,8 +3,10 @@
   <h2>Dashboard</h2>
   <p>Welcome, <%= user.username %>!</p>
   <p>Email: <%= user.email %></p>
-
   <!-- Button to navigate to the notes page -->
   <a href="/notes" class="btn">Enter Notes</a>
+  <% if (user.role === 'admin') { %>
+    <a href="/admin/notes">View All Notes</a>
+  <% } %>  
 </main>
 <%- include('partials/footer') %>

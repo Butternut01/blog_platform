@@ -1,4 +1,3 @@
-// server.js
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
@@ -8,11 +7,10 @@ const path = require('path');
 const multer = require('multer');
 const bcrypt = require('bcryptjs');
 const Note = require('./models/Note');
-
+const { ensureAuthenticated, isAdmin, isOwnerOrAdmin } = require('./middlewares/auth');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Connect to MongoDB Atlas
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
@@ -54,18 +52,6 @@ const upload = multer({ storage });
 // Import the User model
 const User = require('./models/User');
 
-// -----------------------
-// ROUTES & MIDDLEWARE
-// -----------------------
-
-// Middleware to protect routes
-function ensureAuthenticated(req, res, next) {
-  if (req.session.userId) {
-    return next();
-  }
-  res.redirect('/login');
-}
-
 // Home route
 app.get('/', (req, res) => {
   res.render('index', { user: req.session.user });
@@ -76,12 +62,75 @@ app.get('/register', (req, res) => {
   res.render('register', { error: null });
 });
 
+
+// GET /users/profile - Retrieve logged-in user's profile
+app.get('/users/profile', ensureAuthenticated, async (req, res) => {
+  try {
+    const user = await User.findById(req.session.userId);
+    res.render('profile', { user, error: null });
+  } catch (err) {
+    console.error(err);
+    res.redirect('/dashboard');
+  }
+});
+
+// PUT /users/profile - Allow users to update their profile
+app.post('/users/profile', ensureAuthenticated, upload.single('profilePic'), async (req, res) => {
+  const { username, email, currentPassword, newPassword, confirmNewPassword } = req.body;
+  let profilePicPath = req.file ? '/uploads/' + req.file.filename : req.session.user.profilePic;
+
+  if (!username || !email) {
+      return res.render('profile', { user: req.session.user, error: 'Username and email are required.' });
+  }
+
+  try {
+      const user = await User.findById(req.session.userId);
+
+      // Update basic details
+      user.username = username;
+      user.email = email;
+      user.profilePic = profilePicPath;
+
+      // Handle password change if new password is provided
+      if (newPassword || confirmNewPassword) {
+          if (!currentPassword) {
+              return res.render('profile', { user, error: 'Current password is required to change your password.' });
+          }
+          
+          const isMatch = await bcrypt.compare(currentPassword, user.password);
+          if (!isMatch) {
+              return res.render('profile', { user, error: 'Incorrect current password.' });
+          }
+
+          if (newPassword !== confirmNewPassword) {
+              return res.render('profile', { user, error: 'New passwords do not match.' });
+          }
+
+          const salt = await bcrypt.genSalt(10);
+          user.password = await bcrypt.hash(newPassword, salt);
+      }
+
+      await user.save();
+
+      // Update session data
+      req.session.user.username = user.username;
+      req.session.user.email = user.email;
+      req.session.user.profilePic = user.profilePic;
+
+      res.render('profile', { user, success: 'Profile updated successfully!' });
+  } catch (err) {
+      console.error(err);
+      res.render('profile', { user: req.session.user, error: 'Update failed. Try again.' });
+  }
+});
+
+
 // Handle registration
 app.post('/register', upload.single('profilePic'), async (req, res) => {
-  const { username, email, password, confirmPassword } = req.body;
+  const { username, email, password, confirmPassword, role } = req.body;
   let profilePicPath = req.file ? '/uploads/' + req.file.filename : '';
 
-  // Basic validation
+  // Validate input fields
   if (!username || !email || !password || !confirmPassword) {
     return res.render('register', { error: 'Please fill in all fields.' });
   }
@@ -93,21 +142,34 @@ app.post('/register', upload.single('profilePic'), async (req, res) => {
   }
 
   try {
-    // Check if user already exists
+    // Check if the email is already registered
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.render('register', { error: 'Email is already registered.' });
     }
-    // Hash password
+
+    // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
-    // Create new user with default role 'user'
+
+    // Assign role securely: Only allow 'user' and 'admin' roles
+    let userRole = 'user'; // Default role
+    if (role === 'admin') {
+      // Check if an admin is creating this user (Prevent normal users from setting admin role)
+      const adminUser = await User.findOne({ role: 'admin' });
+      if (!adminUser) {
+        userRole = 'admin'; // First registered user becomes admin
+      }
+    }
+
+    // Create new user
     const newUser = new User({
       username,
       email,
       password: hashedPassword,
       profilePic: profilePicPath,
-      role: 'user'  // You can later change this for role-based access control
+      role: userRole,
     });
+
     await newUser.save();
     res.redirect('/login');
   } catch (err) {
@@ -115,6 +177,7 @@ app.post('/register', upload.single('profilePic'), async (req, res) => {
     res.render('register', { error: 'Something went wrong. Please try again.' });
   }
 });
+
 
 // Login form
 app.get('/login', (req, res) => {
@@ -130,7 +193,7 @@ app.post('/login', async (req, res) => {
       return res.render('login', { error: 'Invalid email or password.' });
     }
 
-    // Check if account is locked (for additional security)
+    // Check if account is locked due to failed login attempts
     if (user.isLocked) {
       return res.render('login', { error: 'Account is locked due to multiple failed login attempts.' });
     }
@@ -138,7 +201,7 @@ app.post('/login', async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       // Increment failed login attempts
-      user.failedLoginAttempts = user.failedLoginAttempts + 1;
+      user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
       if (user.failedLoginAttempts >= 5) {
         user.isLocked = true;
       }
@@ -154,17 +217,27 @@ app.post('/login', async (req, res) => {
     // Save user data in session
     req.session.userId = user._id;
     req.session.user = {
+      id: user._id,
       username: user.username,
       email: user.email,
       role: user.role,
       profilePic: user.profilePic
     };
-    res.redirect('/dashboard');
+
+    console.log("User logged in:", req.session.user); // Debugging log
+
+    // Redirect based on user role
+    if (user.role === 'admin') {
+      return res.redirect('/admin/notes');
+    } else {
+      return res.redirect('/dashboard');
+    }
   } catch (err) {
     console.error(err);
     res.render('login', { error: 'Something went wrong. Please try again.' });
   }
 });
+
 
 // Dashboard (Protected Route)
 app.get('/dashboard', ensureAuthenticated, (req, res) => {
@@ -289,6 +362,62 @@ app.get('/notes', ensureAuthenticated, async (req, res) => {
       res.redirect('/notes');
     }
   });
+  
+
+  // DELETE Task (Only Admins)
+  app.delete('/tasks/:id', ensureAuthenticated, isAdmin, async (req, res) => {
+    try {
+      await Task.findByIdAndDelete(req.params.id);
+      res.send('Task deleted successfully.');
+    } catch (error) {
+      res.status(500).send('Error deleting task.');
+    }
+  });
+  // PUT Update Task (Only the Owner or Admin)
+app.put('/tasks/:id', ensureAuthenticated, isOwnerOrAdmin, async (req, res) => {
+  try {
+    const updatedTask = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(updatedTask);
+  } catch (error) {
+    res.status(500).send('Error updating task.');
+  }
+});
+app.get('/admin/notes', ensureAuthenticated, async (req, res) => {
+  try {
+      if (!req.session.user || req.session.user.role !== 'admin') {
+          return res.status(403).send('Access Denied');
+      }
+
+      const notes = await Note.find().populate('userId', 'username');
+      res.render('admin_notes', { notes, user: req.session.user }); // Pass user session data
+  } catch (error) {
+      console.error(error);
+      res.status(500).send('Server error');
+  }
+});
+
+
+
+app.get('/admin/delete-note/:id', async (req, res) => {
+  try {
+      if (!req.user || req.user.role !== 'admin') {
+          return res.status(403).send('Access Denied');
+      }
+
+      const noteId = req.params.id;
+      await Note.findByIdAndDelete(noteId);
+
+      req.flash('success', 'Note deleted successfully');
+      res.redirect('/admin/notes');
+  } catch (error) {
+      console.error(error);
+      req.flash('error', 'Error deleting note');
+      res.redirect('/admin/notes');
+  }
+});
+
+  
+    
 // -----------------------
 // Start the Server
 // -----------------------

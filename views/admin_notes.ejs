@@ -1,0 +1,39 @@
+<%- include('partials/header') %>
+
+<h2>All Users' Notes</h2>
+<link rel="stylesheet" href="/styles.css">
+
+<table border="1">
+    <thead>
+        <tr>
+            <th>Author</th>
+            <th>Title</th>
+            <th>Content</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        <% if (notes.length > 0) { %>
+            <% notes.forEach(note => { %>
+                <tr>
+                    <td><%= note.userId ? note.userId.username : 'Unknown' %></td>
+                    <td><%= note.title %></td>
+                    <td><%= note.content %></td>
+                    <td>
+                        <% if (user && user.role === 'admin') { %>
+                            <form action="/notes/delete/<%= note._id %>" method="POST" onsubmit="return confirm('Are you sure?');">
+                                <button type="submit">Delete</button>
+                            </form>
+                        <% } %>
+                    </td>
+                </tr>
+            <% }); %>
+        <% } else { %>
+            <tr>
+                <td colspan="4">No notes found.</td>
+            </tr>
+        <% } %>
+    </tbody>
+</table>
+
+<%- include('partials/footer') %>

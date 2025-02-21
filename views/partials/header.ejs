@@ -9,9 +9,9 @@
   <header>
     <h1>Web Blog Application</h1>
     <% if (user) { %>
-      <p>Welcome, <%= user.username %> | <a href="/logout">Logout</a></p>
+      <p>Welcome, <%= user.username %> | <a href="/users/profile">Profile</a> | <a href="/logout">Logout</a></p> 
     <% } else { %>
-      <p><a href="/login">Login</a> | <a href="/register">Register</a></p>
+      <p><a href="/login">Login</a> | <a href="/register">Register</a></p> 
     <% } %>
   </header>
   <hr>
