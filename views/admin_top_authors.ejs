@@ -1,0 +1,23 @@
+<%- include('partials/header') %>
+
+<h2>Top Authors by Post Count</h2>
+<link rel="stylesheet" href="/styles.css">
+
+<table>
+    <thead>
+        <tr>
+            <th>Author</th>
+            <th>Post Count</th>
+        </tr>
+    </thead>
+    <tbody>
+        <% topAuthors.forEach(author => { %>
+            <tr>
+                <td><%= author.username %></td>
+                <td><%= author.postCount %></td>
+            </tr>
+        <% }) %>
+    </tbody>
+</table>
+
+<%- include('partials/footer') %>

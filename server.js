@@ -277,119 +277,114 @@ app.post('/edit-profile', ensureAuthenticated, upload.single('profilePic'), asyn
     res.render('edit-profile', { user: req.session.user, error: 'Update failed. Try again.' });
   }
 });
+// GET: Fetch notes for logged-in users
 app.get('/notes', ensureAuthenticated, async (req, res) => {
-    try {
+  try {
       const notes = await Note.find({ userId: req.session.userId });
       res.render('notes/index', { user: req.session.user, notes });
-    } catch (err) {
+  } catch (err) {
       console.error(err);
       res.send("Error fetching notes");
-    }
-  });
-  
-  // CREATE: Show form to create a new note
-  app.get('/notes/new', ensureAuthenticated, (req, res) => {
-    res.render('notes/new', { user: req.session.user, error: null });
-  });
-  
-  // CREATE: Handle note creation
-  app.post('/notes', ensureAuthenticated, async (req, res) => {
-    const { title, content } = req.body;
-    if (!title || !content) {
+  }
+});
+
+// CREATE: Show form for creating a new note
+app.get('/notes/new', ensureAuthenticated, (req, res) => {
+  res.render('notes/new', { user: req.session.user, error: null });
+});
+
+// CREATE: Handle note creation
+app.post('/notes', ensureAuthenticated, async (req, res) => {
+  const { title, content } = req.body;
+  if (!title || !content) {
       return res.render('notes/new', { user: req.session.user, error: 'Title and content are required' });
-    }
-    try {
+  }
+  try {
       const note = new Note({
-        title,
-        content,
-        userId: req.session.userId
+          title,
+          content,
+          userId: req.session.userId
       });
       await note.save();
       res.redirect('/notes');
-    } catch (err) {
+  } catch (err) {
       console.error(err);
       res.render('notes/new', { user: req.session.user, error: 'Error creating note' });
-    }
-  });
-  
-  // UPDATE: Show form to edit an existing note
-  app.get('/notes/:id/edit', ensureAuthenticated, async (req, res) => {
-    try {
-      const note = await Note.findOne({ _id: req.params.id, userId: req.session.userId });
-      if (!note) {
-        return res.redirect('/notes');
-      }
-      res.render('notes/edit', { user: req.session.user, note, error: null });
-    } catch (err) {
-      console.error(err);
-      res.redirect('/notes');
-    }
-  });
-  
-  // UPDATE: Handle note update
-  app.post('/notes/:id/edit', ensureAuthenticated, async (req, res) => {
-    const { title, content } = req.body;
-    if (!title || !content) {
-      return res.render('notes/edit', { 
-        user: req.session.user, 
-        note: { _id: req.params.id, title, content },
-        error: 'Title and content are required' 
-      });
-    }
-    try {
-      await Note.findOneAndUpdate(
-        { _id: req.params.id, userId: req.session.userId },
-        { title, content }
-      );
-      res.redirect('/notes');
-    } catch (err) {
-      console.error(err);
-      res.render('notes/edit', { 
-        user: req.session.user, 
-        note: { _id: req.params.id, title, content },
-        error: 'Error updating note' 
-      });
-    }
-  });
-  
-  // DELETE: Handle note deletion
-  app.post('/notes/:id/delete', ensureAuthenticated, async (req, res) => {
-    try {
-      await Note.findOneAndDelete({ _id: req.params.id, userId: req.session.userId });
-      res.redirect('/notes');
-    } catch (err) {
-      console.error(err);
-      res.redirect('/notes');
-    }
-  });
-  
-
-  // DELETE Task (Only Admins)
-  app.delete('/tasks/:id', ensureAuthenticated, isAdmin, async (req, res) => {
-    try {
-      await Task.findByIdAndDelete(req.params.id);
-      res.send('Task deleted successfully.');
-    } catch (error) {
-      res.status(500).send('Error deleting task.');
-    }
-  });
-  // PUT Update Task (Only the Owner or Admin)
-app.put('/tasks/:id', ensureAuthenticated, isOwnerOrAdmin, async (req, res) => {
-  try {
-    const updatedTask = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json(updatedTask);
-  } catch (error) {
-    res.status(500).send('Error updating task.');
   }
 });
-app.get('/admin/notes', ensureAuthenticated, async (req, res) => {
+
+// UPDATE: Show edit form
+app.get('/notes/:id/edit', ensureAuthenticated, async (req, res) => {
   try {
-      if (!req.session.user || req.session.user.role !== 'admin') {
-          return res.status(403).send('Access Denied');
+      const note = await Note.findOne({ _id: req.params.id, userId: req.session.userId });
+      if (!note) {
+          return res.redirect('/notes');
+      }
+      res.render('notes/edit', { user: req.session.user, note, error: null });
+  } catch (err) {
+      console.error(err);
+      res.redirect('/notes');
+  }
+});
+
+// UPDATE: Handle note updates
+app.post('/notes/:id/edit', ensureAuthenticated, async (req, res) => {
+  const { title, content } = req.body;
+  if (!title || !content) {
+      return res.render('notes/edit', { 
+          user: req.session.user, 
+          note: { _id: req.params.id, title, content },
+          error: 'Title and content are required' 
+      });
+  }
+  try {
+      await Note.findOneAndUpdate(
+          { _id: req.params.id, userId: req.session.userId },
+          { title, content }
+      );
+      res.redirect('/notes');
+  } catch (err) {
+      console.error(err);
+      res.render('notes/edit', { 
+          user: req.session.user, 
+          note: { _id: req.params.id, title, content },
+          error: 'Error updating note' 
+      });
+  }
+});
+
+// DELETE: Allow users to delete their own notes
+app.delete('/notes/:id', ensureAuthenticated, async (req, res) => {
+  try {
+      const deletedNote = await Note.findOneAndDelete({ _id: req.params.id, userId: req.session.userId });
+
+      if (!deletedNote) {
+          return res.status(404).json({ success: false, message: "Note not found or you don't have permission" });
       }
 
-      const notes = await Note.find().populate('userId', 'username');
-      res.render('admin_notes', { notes, user: req.session.user }); // Pass user session data
+      res.json({ success: true, message: 'Note deleted successfully' });
+  } catch (err) {
+      console.error(err);
+      res.status(500).json({ success: false, message: 'Error deleting note' });
+  }
+});
+
+// GET: Admin Panel - Fetch all notes
+app.get('/admin/notes', ensureAuthenticated, isAdmin, async (req, res) => {
+  try {
+      const { userId, search } = req.query;
+
+      let filter = {};
+      if (userId) filter.userId = userId;
+      if (search) filter.title = { $regex: search, $options: 'i' }; // Case-insensitive search
+
+      const notes = await Note.find(filter)
+          .populate('userId', 'username')
+          .sort({ createdAt: -1 });
+
+      const users = await User.find({}, '_id username'); // Fetch users for dropdown filter
+
+      res.render('admin_notes', { notes, users, user: req.session.user });
   } catch (error) {
       console.error(error);
       res.status(500).send('Server error');
@@ -397,27 +392,64 @@ app.get('/admin/notes', ensureAuthenticated, async (req, res) => {
 });
 
 
-
-app.get('/admin/delete-note/:id', async (req, res) => {
+// DELETE: Admin deletes any note
+app.delete('/admin/delete-note/:id', ensureAuthenticated, isAdmin, async (req, res) => {
   try {
-      if (!req.user || req.user.role !== 'admin') {
-          return res.status(403).send('Access Denied');
-      }
-
-      const noteId = req.params.id;
-      await Note.findByIdAndDelete(noteId);
-
-      req.flash('success', 'Note deleted successfully');
-      res.redirect('/admin/notes');
+      await Note.findByIdAndDelete(req.params.id);
+      res.json({ success: true, message: 'Note deleted successfully' });
   } catch (error) {
       console.error(error);
-      req.flash('error', 'Error deleting note');
-      res.redirect('/admin/notes');
+      res.status(500).json({ success: false, message: 'Error deleting note' });
   }
 });
 
-  
-    
+
+app.get('/admin/top-authors', ensureAuthenticated, isAdmin, async (req, res) => {
+  try {
+      const topAuthors = await Note.aggregate([
+          {
+              $group: {
+                  _id: "$userId",
+                  postCount: { $sum: 1 }
+              }
+          },
+          {
+              $lookup: {
+                  from: "users",
+                  localField: "_id",
+                  foreignField: "_id",
+                  as: "user"
+              }
+          },
+          {
+              $unwind: "$user"
+          },
+          {
+              $project: {
+                  _id: 0,
+                  username: "$user.username",
+                  postCount: 1
+              }
+          },
+          {
+              $sort: { postCount: -1 }
+          },
+          {
+              $limit: 10 // Get top 10 authors
+          }
+      ]);
+
+      res.render('admin_top_authors', { 
+          topAuthors, 
+          user: req.session.user // ✅ Pass user to EJS template
+      });
+  } catch (error) {
+      console.error(error);
+      res.status(500).send("Error fetching top authors");
+  }
+});
+
+
 // -----------------------
 // Start the Server
 // -----------------------
