@@ -16,7 +16,6 @@ git clone https://github.com/your-username/notes-management.git
 cd notes-management
 
 2️⃣ Install Dependencies
-sh
 npm install
 
 3️⃣ Configure Environment Variables
