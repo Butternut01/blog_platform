@@ -10,6 +10,9 @@ const Note = require('./models/Note');
 const { ensureAuthenticated, isAdmin, isOwnerOrAdmin } = require('./middlewares/auth');
 const app = express();
 const PORT = process.env.PORT || 3000;
+const methodOverride = require('method-override');
+
+app.use(methodOverride('_method'));
 
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
@@ -251,7 +254,7 @@ app.get('/logout', (req, res) => {
   });
 });
 
-// Example of a CRUD operation route (e.g., editing user profile)
+// Example of a CRUD operation route 
 app.get('/edit-profile', ensureAuthenticated, async (req, res) => {
   const user = await User.findById(req.session.userId);
   res.render('edit-profile', { user, error: null });
@@ -441,7 +444,7 @@ app.get('/admin/top-authors', ensureAuthenticated, isAdmin, async (req, res) => 
 
       res.render('admin_top_authors', { 
           topAuthors, 
-          user: req.session.user // ✅ Pass user to EJS template
+          user: req.session.user // Pass user to EJS template
       });
   } catch (error) {
       console.error(error);

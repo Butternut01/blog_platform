@@ -7,10 +7,10 @@ const NoteSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// 📌 Compound index for faster title & user searches
+// Compound index for faster title & user searches
 NoteSchema.index({ title: 1, userId: 1 });
 
-// 📌 Index for efficient sorting by creation date
+// Index for efficient sorting by creation date
 NoteSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('Note', NoteSchema);
